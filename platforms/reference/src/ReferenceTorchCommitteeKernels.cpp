@@ -29,13 +29,13 @@
  * USE OR OTHER DEALINGS IN THE SOFTWARE.                                     *
  * -------------------------------------------------------------------------- */
 
-#include "ReferenceTorchKernels.h"
-#include "TorchForce.h"
+#include "ReferenceTorchCommitteeKernels.h"
+#include "TorchForceCommittee.h"
 #include "openmm/OpenMMException.h"
 #include "openmm/internal/ContextImpl.h"
 #include "openmm/reference/ReferencePlatform.h"
 
-using namespace TorchPlugin;
+using namespace TorchCPlugin;
 using namespace OpenMM;
 using namespace std;
 
@@ -59,11 +59,12 @@ static map<string, double>& extractEnergyParameterDerivatives(ContextImpl& conte
     return *data->energyParameterDerivatives;
 }
 
-ReferenceCalcTorchForceKernel::~ReferenceCalcTorchForceKernel() {
+ReferenceCalcTorchForceCommitteeKernel::~ReferenceCalcTorchForceCommitteeKernel() {
 }
 
-void ReferenceCalcTorchForceKernel::initialize(const System& system, const TorchForce& force, torch::jit::script::Module& module) {
+void ReferenceCalcTorchForceCommitteeKernel::initialize(const System& system, const TorchForceCommittee& force, torch::jit::script::Module& module, const std::shared_ptr<c10d::ProcessGroupNCCL>& mpi_group) {
     this->module = module;
+    m_mpi_group = mpi_group;
     this->module.eval();
     this->module = torch::jit::freeze(this->module);
     usePeriodic = force.usesPeriodicBoundaryConditions();
@@ -74,7 +75,7 @@ void ReferenceCalcTorchForceKernel::initialize(const System& system, const Torch
         paramDerivs.insert(force.getEnergyParameterDerivativeName(i));
 }
 
-double ReferenceCalcTorchForceKernel::execute(ContextImpl& context, bool includeForces, bool includeEnergy) {
+double ReferenceCalcTorchForceCommitteeKernel::execute(ContextImpl& context, bool includeForces, bool includeEnergy) {
     vector<Vec3>& pos = extractPositions(context);
     vector<Vec3>& force = extractForces(context);
     int numParticles = pos.size();

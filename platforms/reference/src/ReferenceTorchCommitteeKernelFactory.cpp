@@ -1,8 +1,5 @@
-#ifndef OPENMM_REFERENCE_TORCH_KERNEL_FACTORY_H_
-#define OPENMM_REFERENCE_TORCH_KERNEL_FACTORY_H_
-
 /* -------------------------------------------------------------------------- *
- *                                   OpenMM                                   *
+ *                               OpenMM-NN                                    *
  * -------------------------------------------------------------------------- *
  * This is part of the OpenMM molecular simulation toolkit originating from   *
  * Simbios, the NIH National Center for Physics-Based Simulation of           *
@@ -32,19 +29,37 @@
  * USE OR OTHER DEALINGS IN THE SOFTWARE.                                     *
  * -------------------------------------------------------------------------- */
 
-#include "openmm/KernelFactory.h"
+#include "ReferenceTorchCommitteeKernelFactory.h"
+#include "ReferenceTorchCommitteeKernels.h"
+#include "openmm/reference/ReferencePlatform.h"
+#include "openmm/internal/ContextImpl.h"
+#include "openmm/OpenMMException.h"
+#include <vector>
 
-namespace OpenMM {
+using namespace TorchCPlugin;
+using namespace OpenMM;
+using namespace std;
 
-/**
- * This KernelFactory creates kernels for the reference implementation of the Torch plugin.
- */
+extern "C" OPENMM_EXPORT void registerPlatforms() {
+}
 
-class ReferenceTorchKernelFactory : public KernelFactory {
-public:
-    KernelImpl* createKernelImpl(std::string name, const Platform& platform, ContextImpl& context) const;
-};
+extern "C" OPENMM_EXPORT void registerKernelFactories() {
+    for (int i = 0; i < Platform::getNumPlatforms(); i++) {
+        Platform& platform = Platform::getPlatform(i);
+        if (dynamic_cast<ReferencePlatform*>(&platform) != NULL) {
+            ReferenceTorchCommitteeKernelFactory* factory = new ReferenceTorchCommitteeKernelFactory();
+            platform.registerKernelFactory(CalcTorchForceCommitteeKernel::Name(), factory);
+        }
+    }
+}
 
-} // namespace OpenMM
+extern "C" OPENMM_EXPORT void registerTorchCommitteeReferenceKernelFactories() {
+    registerKernelFactories();
+}
 
-#endif /*OPENMM_REFERENCE_TORCH_KERNEL_FACTORY_H_*/
+KernelImpl* ReferenceTorchCommitteeKernelFactory::createKernelImpl(std::string name, const Platform& platform, ContextImpl& context) const {
+    ReferencePlatform::PlatformData& data = *static_cast<ReferencePlatform::PlatformData*>(context.getPlatformData());
+    if (name == CalcTorchForceCommitteeKernel::Name())
+        return new ReferenceCalcTorchForceCommitteeKernel(name, platform);
+    throw OpenMMException((std::string("Tried to create kernel with illegal kernel name '")+name+"'").c_str());
+}

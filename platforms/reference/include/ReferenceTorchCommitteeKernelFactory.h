@@ -1,5 +1,5 @@
-#ifndef REFERENCE_TORCH_KERNELS_H_
-#define REFERENCE_TORCH_KERNELS_H_
+#ifndef OPENMM_REFERENCE_TORCHC_KERNEL_FACTORY_H_
+#define OPENMM_REFERENCE_TORCHC_KERNEL_FACTORY_H_
 
 /* -------------------------------------------------------------------------- *
  *                                   OpenMM                                   *
@@ -9,7 +9,7 @@
  * Biological Structures at Stanford, funded under the NIH Roadmap for        *
  * Medical Research, grant U54 GM072970. See https://simtk.org.               *
  *                                                                            *
- * Portions copyright (c) 2018-2022 Stanford University and the Authors.      *
+ * Portions copyright (c) 2018 Stanford University and the Authors.           *
  * Authors: Peter Eastman                                                     *
  * Contributors:                                                              *
  *                                                                            *
@@ -32,46 +32,19 @@
  * USE OR OTHER DEALINGS IN THE SOFTWARE.                                     *
  * -------------------------------------------------------------------------- */
 
-#include "TorchKernels.h"
-#include "openmm/Platform.h"
-#include <set>
-#include <vector>
+#include "openmm/KernelFactory.h"
 
-namespace TorchPlugin {
+namespace OpenMM {
 
 /**
- * This kernel is invoked by TorchForce to calculate the forces acting on the system and the energy of the system.
+ * This KernelFactory creates kernels for the reference implementation of the Torch Committee plugin.
  */
-class ReferenceCalcTorchForceKernel : public CalcTorchForceKernel {
+
+class ReferenceTorchCommitteeKernelFactory : public KernelFactory {
 public:
-    ReferenceCalcTorchForceKernel(std::string name, const OpenMM::Platform& platform) : CalcTorchForceKernel(name, platform) {
-    }
-    ~ReferenceCalcTorchForceKernel();
-    /**
-     * Initialize the kernel.
-     * 
-     * @param system         the System this kernel will be applied to
-     * @param force          the TorchForce this kernel will be used for
-     * @param module         the PyTorch module to use for computing forces and energy
-     */
-    void initialize(const OpenMM::System& system, const TorchForce& force, torch::jit::script::Module& module);
-    /**
-     * Execute the kernel to calculate the forces and/or energy.
-     *
-     * @param context        the context in which to execute this kernel
-     * @param includeForces  true if forces should be calculated
-     * @param includeEnergy  true if the energy should be calculated
-     * @return the potential energy due to the force
-     */
-    double execute(OpenMM::ContextImpl& context, bool includeForces, bool includeEnergy);
-private:
-    torch::jit::script::Module module;
-    std::vector<float> positions, boxVectors;
-    std::vector<std::string> globalNames;
-    std::set<std::string> paramDerivs;
-    bool usePeriodic, outputsForces;
+    KernelImpl* createKernelImpl(std::string name, const Platform& platform, ContextImpl& context) const;
 };
 
-} // namespace TorchPlugin
+} // namespace OpenMM
 
-#endif /*REFERENCE_TORCH_KERNELS_H_*/
+#endif /*OPENMM_REFERENCE_TORCHC_KERNEL_FACTORY_H_*/

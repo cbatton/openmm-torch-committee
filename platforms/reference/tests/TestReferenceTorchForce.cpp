@@ -30,10 +30,10 @@
  * -------------------------------------------------------------------------- */
 
 /**
- * This tests the Reference implementation of TorchForce.
+ * This tests the Reference implementation of TorchForceCommittee.
  */
 
-#include "TorchForce.h"
+#include "TorchForceCommittee.h"
 #include "openmm/internal/AssertionUtilities.h"
 #include "openmm/Context.h"
 #include "openmm/Platform.h"
@@ -44,11 +44,11 @@
 #include <iostream>
 #include <vector>
 
-using namespace TorchPlugin;
+using namespace TorchCPlugin;
 using namespace OpenMM;
 using namespace std;
 
-extern "C" OPENMM_EXPORT void registerTorchReferenceKernelFactories();
+extern "C" OPENMM_EXPORT void registerTorchCommitteeReferenceKernelFactories();
 
 void testForce(bool outputsForces) {
     // Create a random cloud of particles.
@@ -62,7 +62,7 @@ void testForce(bool outputsForces) {
         system.addParticle(1.0);
         positions[i] = Vec3(genrand_real2(sfmt), genrand_real2(sfmt), genrand_real2(sfmt))*10;
     }
-    TorchForce* force = new TorchForce(outputsForces ? "tests/forces.pt" : "tests/central.pt");
+    TorchForceCommittee* force = new TorchForceCommittee(outputsForces ? "tests/forces.pt" : "tests/central.pt", nullptr);
     force->setOutputsForces(outputsForces);
     system.addForce(force);
 
@@ -99,7 +99,7 @@ void testPeriodicForce() {
         system.addParticle(1.0);
         positions[i] = Vec3(genrand_real2(sfmt), genrand_real2(sfmt), genrand_real2(sfmt))*10;
     }
-    TorchForce* force = new TorchForce("tests/periodic.pt");
+    TorchForceCommittee* force = new TorchForceCommittee("tests/periodic.pt", nullptr);
     force->setUsesPeriodicBoundaryConditions(true);
     system.addForce(force);
 
@@ -138,7 +138,7 @@ void testGlobal() {
         system.addParticle(1.0);
         positions[i] = Vec3(genrand_real2(sfmt), genrand_real2(sfmt), genrand_real2(sfmt))*10;
     }
-    TorchForce* force = new TorchForce("tests/global.pt");
+    TorchForceCommittee* force = new TorchForceCommittee("tests/global.pt", nullptr);
     force->addGlobalParameter("k", 2.0);
     force->addEnergyParameterDerivative("k");
     system.addForce(force);
@@ -186,7 +186,7 @@ void testGlobal() {
 
 int main() {
     try {
-        registerTorchReferenceKernelFactories();
+        registerTorchCommitteeReferenceKernelFactories();
         testForce(false);
         testForce(true);
         testPeriodicForce();

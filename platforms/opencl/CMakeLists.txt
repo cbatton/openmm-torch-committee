@@ -1,11 +1,11 @@
 #---------------------------------------------------
-# OpenMM Torch Plugin OpenCL Platform
+# OpenMM Torch Committee Plugin OpenCL Platform
 #----------------------------------------------------
 
 # Collect up information about the version of the OpenMM library we're building
 # and make it available to the code so it can be built into the binaries.
 
-SET(NN_OPENCL_LIBRARY_NAME OpenMMTorchOpenCL)
+SET(NN_OPENCL_LIBRARY_NAME OpenMMTorchCommitteeOpenCL)
 
 SET(SHARED_TARGET ${NN_OPENCL_LIBRARY_NAME})
 
