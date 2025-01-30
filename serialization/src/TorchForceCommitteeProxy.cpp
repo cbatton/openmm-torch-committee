@@ -29,8 +29,8 @@
  * USE OR OTHER DEALINGS IN THE SOFTWARE.                                     *
  * -------------------------------------------------------------------------- */
 
-#include "TorchForceProxy.h"
-#include "TorchForce.h"
+#include "TorchForceCommitteeProxy.h"
+#include "TorchForceCommittee.h"
 #include "openmm/serialization/SerializationNode.h"
 #include <fstream>
 #include <iostream>
@@ -38,7 +38,7 @@
 #include <string>
 #include <torch/csrc/jit/serialization/import.h>
 
-using namespace TorchPlugin;
+using namespace TorchCPlugin;
 using namespace OpenMM;
 using namespace std;
 
@@ -70,12 +70,12 @@ static string hexEncodeFromFileName(const string& filename) {
     return hexEncode(inputStream.str());
 }
 
-TorchForceProxy::TorchForceProxy() : SerializationProxy("TorchForce") {
+TorchForceCommitteeProxy::TorchForceCommitteeProxy() : SerializationProxy("TorchForceCommittee") {
 }
 
-void TorchForceProxy::serialize(const void* object, SerializationNode& node) const {
+void TorchForceCommitteeProxy::serialize(const void* object, SerializationNode& node) const {
     node.setIntProperty("version", 4);
-    const TorchForce& force = *reinterpret_cast<const TorchForce*>(object);
+    const TorchForceCommittee& force = *reinterpret_cast<const TorchForceCommittee*>(object);
     node.setStringProperty("file", force.getFile());
     try {
         auto tempFileName = std::tmpnam(nullptr);
@@ -84,7 +84,7 @@ void TorchForceProxy::serialize(const void* object, SerializationNode& node) con
         std::remove(tempFileName);
     }
     catch (exception& ex) {
-        throw OpenMMException("TorchForceProxy: Could not serialize model. Failed with error: " + string(ex.what()));
+        throw OpenMMException("TorchForceCommitteeProxy: Could not serialize model. Failed with error: " + string(ex.what()));
     }
     node.setIntProperty("forceGroup", force.getForceGroup());
     node.setBoolProperty("usesPeriodic", force.usesPeriodicBoundaryConditions());
@@ -100,21 +100,21 @@ void TorchForceProxy::serialize(const void* object, SerializationNode& node) con
         properties.createChildNode("Property").setStringProperty("name", prop.first).setStringProperty("value", prop.second);
 }
 
-void* TorchForceProxy::deserialize(const SerializationNode& node) const {
+void* TorchForceCommitteeProxy::deserialize(const SerializationNode& node) const {
     int storedVersion = node.getIntProperty("version");
     if (storedVersion > 4)
         throw OpenMMException("Unsupported version number");
-    TorchForce* force;
+    TorchForceCommittee* force;
     if (storedVersion == 1) {
         string fileName = node.getStringProperty("file");
-        force = new TorchForce(fileName);
+        force = new TorchForceCommittee(fileName, nullptr);
     } else {
         const string storedEncodedFile = node.getStringProperty("encodedFileContents");
         string fileName = tmpnam(nullptr); // A unique filename
         ofstream(fileName) << hexDecode(storedEncodedFile);
         auto model = torch::jit::load(fileName);
         std::remove(fileName.c_str());
-        force = new TorchForce(model);
+        force = new TorchForceCommittee(model, nullptr);
     }
     if (node.hasProperty("forceGroup"))
         force->setForceGroup(node.getIntProperty("forceGroup", 0));

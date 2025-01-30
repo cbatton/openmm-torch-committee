@@ -38,8 +38,8 @@
 #include <cstdlib>
 #endif
 
-#include "TorchForce.h"
-#include "TorchForceProxy.h"
+#include "TorchForceCommittee.h"
+#include "TorchForceCommitteeProxy.h"
 #include "openmm/serialization/SerializationProxy.h"
 
 #if defined(WIN32)
@@ -54,9 +54,9 @@
     extern "C" void __attribute__((constructor)) registerTorchSerializationProxies();
 #endif
 
-using namespace TorchPlugin;
+using namespace TorchCPlugin;
 using namespace OpenMM;
 
 extern "C" OPENMM_EXPORT_NN void registerTorchSerializationProxies() {
-    SerializationProxy::registerProxy(typeid(TorchForce), new TorchForceProxy());
+    SerializationProxy::registerProxy(typeid(TorchForceCommittee), new TorchForceCommitteeProxy());
 }

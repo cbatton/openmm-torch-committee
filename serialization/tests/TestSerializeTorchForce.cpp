@@ -29,7 +29,7 @@
  * USE OR OTHER DEALINGS IN THE SOFTWARE.                                     *
  * -------------------------------------------------------------------------- */
 
-#include "TorchForce.h"
+#include "TorchForceCommittee.h"
 #include "openmm/Platform.h"
 #include "openmm/internal/AssertionUtilities.h"
 #include "openmm/serialization/XmlSerializer.h"
@@ -38,13 +38,15 @@
 #include <sstream>
 #include <torch/torch.h>
 #include <torch/csrc/jit/serialization/import.h>
-using namespace TorchPlugin;
+#include <c10d/ProcessGroupNCCL.hpp>
+
+using namespace TorchCPlugin;
 using namespace OpenMM;
 using namespace std;
 
 extern "C" void registerTorchSerializationProxies();
 
-void serializeAndDeserialize(TorchForce force) {
+void serializeAndDeserialize(TorchForceCommittee force) {
     force.setForceGroup(3);
     force.addGlobalParameter("x", 1.3);
     force.addGlobalParameter("y", 2.221);
@@ -57,12 +59,12 @@ void serializeAndDeserialize(TorchForce force) {
     // Serialize and then deserialize it.
 
     stringstream buffer;
-    XmlSerializer::serialize<TorchForce>(&force, "Force", buffer);
-    TorchForce* copy = XmlSerializer::deserialize<TorchForce>(buffer);
+    XmlSerializer::serialize<TorchForceCommittee>(&force, "Force", buffer);
+    TorchForceCommittee* copy = XmlSerializer::deserialize<TorchForceCommittee>(buffer);
 
     // Compare the two forces to see if they are identical.
 
-    TorchForce& force2 = *copy;
+    TorchForceCommittee& force2 = *copy;
     ostringstream bufferModule;
     force.getModule().save(bufferModule);
     ostringstream bufferModule2;
@@ -87,13 +89,13 @@ void serializeAndDeserialize(TorchForce force) {
 void testSerializationFromModule() {
     string fileName = "tests/forces.pt";
     torch::jit::Module module = torch::jit::load(fileName);
-    TorchForce force(module);
+    TorchForceCommittee force(module, nullptr);
     serializeAndDeserialize(force);
 }
 
 void testSerializationFromFile() {
     string fileName = "tests/forces.pt";
-    TorchForce force(fileName);
+    TorchForceCommittee force(fileName, nullptr);
     serializeAndDeserialize(force);
 }
 

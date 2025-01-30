@@ -30,7 +30,7 @@
  * -------------------------------------------------------------------------- */
 
 #include "internal/TorchForceCommitteeImpl.h"
-#include "TorchKernels.h"
+#include "TorchCommitteeKernels.h"
 #include "openmm/OpenMMException.h"
 #include "openmm/internal/ContextImpl.h"
 #include <torch/script.h>

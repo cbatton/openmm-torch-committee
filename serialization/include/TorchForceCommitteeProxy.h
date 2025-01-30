@@ -1,5 +1,5 @@
-#ifndef OPENMM_TORCH_FORCE_PROXY_H_
-#define OPENMM_TORCH_FORCE_PROXY_H_
+#ifndef OPENMM_TORCHC_FORCE_PROXY_H_
+#define OPENMM_TORCHC_FORCE_PROXY_H_
 
 /* -------------------------------------------------------------------------- *
  *                                 OpenMM-NN                                    *
@@ -38,16 +38,16 @@
 namespace OpenMM {
 
 /**
- * This is a proxy for serializing TorchForce objects.
+ * This is a proxy for serializing TorchForceCommittee objects.
  */
 
-class OPENMM_EXPORT_NN TorchForceProxy : public SerializationProxy {
+class OPENMM_EXPORT_NN TorchForceCommitteeProxy : public SerializationProxy {
 public:
-    TorchForceProxy();
+    TorchForceCommitteeProxy();
     void serialize(const void* object, SerializationNode& node) const;
     void* deserialize(const SerializationNode& node) const;
 };
 
 } // namespace OpenMM
 
-#endif /*OPENMM_TORCH_FORCE_PROXY_H_*/
+#endif /*OPENMM_TORCHC_FORCE_PROXY_H_*/
