@@ -1,6 +1,3 @@
-#ifndef OPENMM_TORCH_FORCE_IMPL_H_
-#define OPENMM_TORCH_FORCE_IMPL_H_
-
 /* -------------------------------------------------------------------------- *
  *                                   OpenMM                                   *
  * -------------------------------------------------------------------------- *
@@ -9,7 +6,7 @@
  * Biological Structures at Stanford, funded under the NIH Roadmap for        *
  * Medical Research, grant U54 GM072970. See https://simtk.org.               *
  *                                                                            *
- * Portions copyright (c) 2018-2020 Stanford University and the Authors.      *
+ * Portions copyright (c) 2018 Stanford University and the Authors.           *
  * Authors: Peter Eastman                                                     *
  * Contributors:                                                              *
  *                                                                            *
@@ -32,41 +29,45 @@
  * USE OR OTHER DEALINGS IN THE SOFTWARE.                                     *
  * -------------------------------------------------------------------------- */
 
-#include "TorchForce.h"
-#include "openmm/internal/ForceImpl.h"
-#include "openmm/Kernel.h"
-#include <torch/torch.h>
-#include <utility>
-#include <set>
-#include <string>
+#include "internal/TorchForceCommitteeImpl.h"
+#include "TorchKernels.h"
+#include "openmm/OpenMMException.h"
+#include "openmm/internal/ContextImpl.h"
+#include <torch/script.h>
 
-namespace TorchPlugin {
+using namespace TorchCPlugin;
+using namespace OpenMM;
+using namespace std;
 
-class System;
+TorchForceCommitteeImpl::TorchForceCommitteeImpl(const TorchForceCommittee& owner) : owner(owner) {
+}
 
-/**
- * This is the internal implementation of TorchForce.
- */
+TorchForceCommitteeImpl::~TorchForceCommitteeImpl() {
+}
 
-class OPENMM_EXPORT_NN TorchForceImpl : public OpenMM::ForceImpl {
-public:
-    TorchForceImpl(const TorchForce& owner);
-    ~TorchForceImpl();
-    void initialize(OpenMM::ContextImpl& context);
-    const TorchForce& getOwner() const {
-        return owner;
-    }
-    void updateContextState(OpenMM::ContextImpl& context, bool& forcesInvalid) {
-        // This force field doesn't update the state directly.
-    }
-    double calcForcesAndEnergy(OpenMM::ContextImpl& context, bool includeForces, bool includeEnergy, int groups);
-    std::map<std::string, double> getDefaultParameters();
-    std::vector<std::string> getKernelNames();
-private:
-    const TorchForce& owner;
-    OpenMM::Kernel kernel;
-};
+void TorchForceCommitteeImpl::initialize(ContextImpl& context) {
+    auto module = owner.getModule().clone();
+    auto m_mpi_group = owner.getMPIGroup();
+    // Create the kernel.
+    kernel = context.getPlatform().createKernel(CalcTorchForceCommitteeKernel::Name(), context);
+    kernel.getAs<CalcTorchForceCommitteeKernel>().initialize(context.getSystem(), owner, module, m_mpi_group);
+}
 
-} // namespace TorchPlugin
+double TorchForceCommitteeImpl::calcForcesAndEnergy(ContextImpl& context, bool includeForces, bool includeEnergy, int groups) {
+    if ((groups&(1<<owner.getForceGroup())) != 0)
+        return kernel.getAs<CalcTorchForceCommitteeKernel>().execute(context, includeForces, includeEnergy);
+    return 0.0;
+}
 
-#endif /*OPENMM_TORCH_FORCE_IMPL_H_*/
+map<string, double> TorchForceCommitteeImpl::getDefaultParameters() {
+    map<string, double> parameters;
+    for (int i = 0; i < owner.getNumGlobalParameters(); i++)
+        parameters[owner.getGlobalParameterName(i)] = owner.getGlobalParameterDefaultValue(i);
+    return parameters;
+}
+
+std::vector<std::string> TorchForceCommitteeImpl::getKernelNames() {
+    std::vector<std::string> names;
+    names.push_back(CalcTorchForceCommitteeKernel::Name());
+    return names;
+}

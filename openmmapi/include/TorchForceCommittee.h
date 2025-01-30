@@ -1,5 +1,5 @@
-#ifndef OPENMM_TORCHFORCE_H_
-#define OPENMM_TORCHFORCE_H_
+#ifndef OPENMM_TORCHFORCEC_H_
+#define OPENMM_TORCHFORCEC_H_
 
 /* -------------------------------------------------------------------------- *
  *                                   OpenMM                                   *
@@ -38,9 +38,10 @@
 #include <string>
 #include <vector>
 #include <torch/torch.h>
+#include <c10d/ProcessGroupNCCL.hpp>
 #include "internal/windowsExportTorch.h"
 
-namespace TorchPlugin {
+namespace TorchCPlugin {
 
 /**
  * This class implements forces that are defined by user-supplied neural networks.
@@ -50,29 +51,30 @@ namespace TorchPlugin {
  * constructor makes a copy of the  module in memory. Later changes to
  * the original module or to the file do not affect it.*/
 
-class OPENMM_EXPORT_NN TorchForce : public OpenMM::Force {
+class OPENMM_EXPORT_NN TorchForceCommittee : public OpenMM::Force {
 public:
     /**
-     * Create a TorchForce.  The network is defined by a PyTorch ScriptModule saved
+     * Create a TorchForceCommittee.  The network is defined by a PyTorch ScriptModule saved
      * to a file.
      *
      * @param file       the path to the file containing the network
      * @param properties optional map of properties
      */
-    TorchForce(const std::string& file,
+    TorchForceCommittee(const std::string& file,
+               const std::shared_ptr<c10d::ProcessGroupNCCL>& mpi_group,
                const std::map<std::string, std::string>& properties = {});
     /**
-     * Create a TorchForce.  The network is defined by a PyTorch ScriptModule
+     * Create a TorchForceCommittee.  The network is defined by a PyTorch ScriptModule
      * Note that this constructor makes a copy of the provided module.
-     * Any changes to the module  after calling this constructor will be ignored by TorchForce.
+     * Any changes to the module  after calling this constructor will be ignored by TorchForceCommittee.
      *
      * @param module   an instance of the torch module
      * @param properties optional map of properties
      */
-    TorchForce(const torch::jit::Module &module, const std::map<std::string, std::string>& properties = {});
+    TorchForceCommittee(const torch::jit::Module &module, const std::shared_ptr<c10d::ProcessGroupNCCL>& mpi_group, const std::map<std::string, std::string>& properties = {});
     /**
      * Get the path to the file containing the network.
-     * If the TorchForce instance was constructed with a module, instead of a filename,
+     * If the TorchForceCommittee instance was constructed with a module, instead of a filename,
      * this function returns an empty string.
      */
     const std::string& getFile() const;
@@ -80,6 +82,10 @@ public:
      * Get the torch module currently in use.
      */
     const torch::jit::Module & getModule() const;
+    /**
+     * Get the process group used for MPI communication.
+     */
+    const std::shared_ptr<c10d::ProcessGroupNCCL>& getMPIGroup() const;
     /**
      * Set whether this force makes use of periodic boundary conditions.  If this is set
      * to true, the network must take a 3x3 tensor as its second input, which
@@ -179,6 +185,7 @@ public:
     const std::map<std::string, std::string>& getProperties() const;
 protected:
     OpenMM::ForceImpl* createImpl() const;
+    std::shared_ptr<c10d::ProcessGroupNCCL> m_mpi_group;
 private:
     class GlobalParameterInfo;
     std::string file;
@@ -188,13 +195,15 @@ private:
     torch::jit::Module module;
     std::map<std::string, std::string> properties;
     std::string emptyProperty;
+    int rank = 0;
+    int world_size = 1;
 };
 
 /**
  * This is an internal class used to record information about a global parameter.
  * @private
  */
-class TorchForce::GlobalParameterInfo {
+class TorchForceCommittee::GlobalParameterInfo {
 public:
     std::string name;
     double defaultValue;
@@ -204,6 +213,6 @@ public:
     }
 };
 
-} // namespace TorchPlugin
+} // namespace TorchCPlugin
 
-#endif /*OPENMM_TORCHFORCE_H_*/
+#endif /*OPENMM_TORCHFORCEC_H_*/

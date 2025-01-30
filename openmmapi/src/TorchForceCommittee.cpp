@@ -29,94 +29,101 @@
  * USE OR OTHER DEALINGS IN THE SOFTWARE.                                     *
  * -------------------------------------------------------------------------- */
 
-#include "TorchForce.h"
-#include "internal/TorchForceImpl.h"
+#include "TorchForceCommittee.h"
+#include "internal/TorchForceCommitteeImpl.h"
 #include "openmm/OpenMMException.h"
 #include "openmm/internal/AssertionUtilities.h"
 #include <fstream>
 #include <torch/torch.h>
 #include <torch/csrc/jit/serialization/import.h>
+#include <c10d/ProcessGroupNCCL.hpp>
 
-using namespace TorchPlugin;
+using namespace TorchCPlugin;
 using namespace OpenMM;
 using namespace std;
 
-TorchForce::TorchForce(const torch::jit::Module& module, const map<string, string>& properties) : file(), usePeriodic(false), outputsForces(false), module(module) {
+TorchForceCommittee::TorchForceCommittee(const torch::jit::Module& module, const shared_ptr<c10d::ProcessGroupNCCL>& mpi_group, const map<string, string>& properties) : file(), usePeriodic(false), outputsForces(false), module(module), m_mpi_group(mpi_group) {
     const std::map<std::string, std::string> defaultProperties = {{"useCUDAGraphs", "false"}, {"CUDAGraphWarmupSteps", "10"}};
     this->properties = defaultProperties;
     for (auto& property : properties) {
         if (defaultProperties.find(property.first) == defaultProperties.end())
-            throw OpenMMException("TorchForce: Unknown property '" + property.first + "'");
+            throw OpenMMException("TorchForceCommittee: Unknown property '" + property.first + "'");
         this->properties[property.first] = property.second;
     }
+    rank = m_mpi_group->getRank();
+    world_size = m_mpi_group->getSize();
 }
 
-TorchForce::TorchForce(const std::string& file, const map<string, string>& properties) : TorchForce(torch::jit::load(file), properties) {
+TorchForceCommittee::TorchForceCommittee(const std::string& file, const shared_ptr<c10d::ProcessGroupNCCL>& mpi_group, const map<string, string>& properties) : TorchForceCommittee(torch::jit::load(file), mpi_group, properties) {
     this->file = file;
 }
 
-const string& TorchForce::getFile() const {
+const string& TorchForceCommittee::getFile() const {
     return file;
 }
 
-const torch::jit::Module& TorchForce::getModule() const {
+const torch::jit::Module& TorchForceCommittee::getModule() const {
     return this->module;
 }
 
-ForceImpl* TorchForce::createImpl() const {
-    return new TorchForceImpl(*this);
+const shared_ptr<c10d::ProcessGroupNCCL>& TorchForceCommittee::getMPIGroup() const {
+    return m_mpi_group;
 }
 
-void TorchForce::setUsesPeriodicBoundaryConditions(bool periodic) {
+ForceImpl* TorchForceCommittee::createImpl() const {
+    return new TorchForceCommitteeImpl(*this);
+}
+
+void TorchForceCommittee::setUsesPeriodicBoundaryConditions(bool periodic) {
     usePeriodic = periodic;
 }
 
-bool TorchForce::usesPeriodicBoundaryConditions() const {
+bool TorchForceCommittee::usesPeriodicBoundaryConditions() const {
     return usePeriodic;
 }
 
-void TorchForce::setOutputsForces(bool outputsForces) {
+void TorchForceCommittee::setOutputsForces(bool outputsForces) {
     this->outputsForces = outputsForces;
 }
 
-bool TorchForce::getOutputsForces() const {
+bool TorchForceCommittee::getOutputsForces() const {
     return outputsForces;
 }
 
-int TorchForce::addGlobalParameter(const string& name, double defaultValue) {
+int TorchForceCommittee::addGlobalParameter(const string& name, double defaultValue) {
     globalParameters.push_back(GlobalParameterInfo(name, defaultValue));
     return globalParameters.size() - 1;
 }
 
-int TorchForce::getNumGlobalParameters() const {
+int TorchForceCommittee::getNumGlobalParameters() const {
     return globalParameters.size();
 }
 
-const string& TorchForce::getGlobalParameterName(int index) const {
+const string& TorchForceCommittee::getGlobalParameterName(int index) const {
     ASSERT_VALID_INDEX(index, globalParameters);
     return globalParameters[index].name;
 }
 
-void TorchForce::setGlobalParameterName(int index, const string& name) {
+void TorchForceCommittee::setGlobalParameterName(int index, const string& name) {
     ASSERT_VALID_INDEX(index, globalParameters);
     globalParameters[index].name = name;
 }
 
-double TorchForce::getGlobalParameterDefaultValue(int index) const {
+double TorchForceCommittee::getGlobalParameterDefaultValue(int index) const {
     ASSERT_VALID_INDEX(index, globalParameters);
     return globalParameters[index].defaultValue;
 }
 
-void TorchForce::setGlobalParameterDefaultValue(int index, double defaultValue) {
+void TorchForceCommittee::setGlobalParameterDefaultValue(int index, double defaultValue) {
     ASSERT_VALID_INDEX(index, globalParameters);
     globalParameters[index].defaultValue = defaultValue;
 }
 
-int TorchForce::getNumEnergyParameterDerivatives() const {
+int TorchForceCommittee::getNumEnergyParameterDerivatives() const {
     return energyParameterDerivatives.size();
 }
 
-void TorchForce::addEnergyParameterDerivative(const string& name) {
+void TorchForceCommittee::addEnergyParameterDerivative(const string& name) {
     for (int i = 0; i < globalParameters.size(); i++)
         if (name == globalParameters[i].name) {
             energyParameterDerivatives.push_back(i);
@@ -125,17 +132,17 @@ void TorchForce::addEnergyParameterDerivative(const string& name) {
     throw OpenMMException(string("addEnergyParameterDerivative: Unknown global parameter '"+name+"'"));
 }
 
-const string& TorchForce::getEnergyParameterDerivativeName(int index) const {
+const string& TorchForceCommittee::getEnergyParameterDerivativeName(int index) const {
     ASSERT_VALID_INDEX(index, energyParameterDerivatives);
     return globalParameters[energyParameterDerivatives[index]].name;
 }
 
-void TorchForce::setProperty(const std::string& name, const std::string& value) {
+void TorchForceCommittee::setProperty(const std::string& name, const std::string& value) {
     if (properties.find(name) == properties.end())
-        throw OpenMMException("TorchForce: Unknown property '" + name + "'");
+        throw OpenMMException("TorchForceCommittee: Unknown property '" + name + "'");
     properties[name] = value;
 }
 
-const std::map<std::string, std::string>& TorchForce::getProperties() const {
+const std::map<std::string, std::string>& TorchForceCommittee::getProperties() const {
     return properties;
 }

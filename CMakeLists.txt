@@ -16,6 +16,7 @@ LINK_DIRECTORIES("${OPENMM_DIR}/lib" "${OPENMM_DIR}/lib/plugins")
 SET(PYTORCH_DIR "" CACHE PATH "Where the PyTorch C++ API is installed")
 SET(CMAKE_PREFIX_PATH "${PYTORCH_DIR}")
 FIND_PACKAGE(Torch REQUIRED)
+INCLUDE_DIRECTORIES("${PYTORCH_DIR}/include", "${PYTORCH_DIR}/include/torch/csrc/api/include", "${PYTORCH_DIR}/include/torch/csrc/distributed")
 
 # Specify the C++ version we are building for.
 SET (CMAKE_CXX_STANDARD 17)

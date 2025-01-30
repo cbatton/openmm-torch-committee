@@ -29,15 +29,15 @@
  * USE OR OTHER DEALINGS IN THE SOFTWARE.                                     *
  * -------------------------------------------------------------------------- */
 
-#include "CudaTorchKernels.h"
-#include "CudaTorchKernelSources.h"
+#include "CudaTorchCommitteeKernels.h"
+#include "CudaTorchCommitteeKernelSources.h"
 #include "openmm/common/ContextSelector.h"
 #include "openmm/internal/ContextImpl.h"
 #include <map>
 #include <cuda_runtime_api.h>
 #include <c10/cuda/CUDAGuard.h>
 #include <c10/cuda/CUDAStream.h>
-using namespace TorchPlugin;
+using namespace TorchCPlugin;
 using namespace OpenMM;
 using namespace std;
 
@@ -51,17 +51,18 @@ using namespace std;
         throw OpenMMException(m.str());                                          \
     }
 
-CudaCalcTorchForceKernel::CudaCalcTorchForceKernel(string name, const Platform& platform, CudaContext& cu) : CalcTorchForceKernel(name, platform), hasInitializedKernel(false), cu(cu) {
+CudaCalcTorchForceCommitteeKernel::CudaCalcTorchForceCommitteeKernel(string name, const Platform& platform, CudaContext& cu) : CalcTorchForceKernel(name, platform), hasInitializedKernel(false), cu(cu) {
     // Explicitly activate the primary context
     CHECK_RESULT(cuDevicePrimaryCtxRetain(&primaryContext, cu.getDevice()), "Failed to retain the primary context");
 }
 
-CudaCalcTorchForceKernel::~CudaCalcTorchForceKernel() {
+CudaCalcTorchForceCommitteeKernel::~CudaCalcTorchForceCommitteeKernel() {
     cuDevicePrimaryCtxRelease(cu.getDevice());
 }
 
-void CudaCalcTorchForceKernel::initialize(const System& system, const TorchForce& force, torch::jit::script::Module& module) {
+void CudaCalcTorchForceCommitteeKernel::initialize(const System& system, const TorchForce& force, torch::jit::script::Module& module, shared_ptr<c10d::ProcessGroupNCCL> mpi_group) {
     this->module = module;
+    m_mpi_group = mpi_group;
     usePeriodic = force.usesPeriodicBoundaryConditions();
     outputsForces = force.getOutputsForces();
     for (int i = 0; i < force.getNumGlobalParameters(); i++)
@@ -93,6 +94,10 @@ void CudaCalcTorchForceKernel::initialize(const System& system, const TorchForce
     CUcontext ctx;
     CHECK_RESULT(cuCtxPopCurrent(&ctx), "Failed to pop the CUDA context");
     assert(primaryContext == ctx); // Check that PyTorch haven't messed up the context stack
+    
+    // Get process group information
+    rank = m_mpi_group->getRank();
+    world_size = m_mpi_group->getSize();
 
     // Initialize CUDA objects for OpenMM-Torch
     ContextSelector selector(cu); // Switch to the OpenMM context
@@ -133,7 +138,7 @@ static void* getTensorPointer(OpenMM::CudaContext& cu, torch::Tensor& tensor) {
 /**
  * Prepare the inputs for the PyTorch model, copying positions from the OpenMM context.
  */
-void CudaCalcTorchForceKernel::prepareTorchInputs(ContextImpl& context, vector<torch::jit::IValue>& inputs, map<string, torch::Tensor>& globalTensors) {
+void CudaCalcTorchForceCommitteeKernel::prepareTorchInputs(ContextImpl& context, vector<torch::jit::IValue>& inputs, map<string, torch::Tensor>& globalTensors) {
     int numParticles = cu.getNumAtoms();
     // Get pointers to the atomic positions and simulation box
     void* posData = getTensorPointer(cu, posTensor);
@@ -152,6 +157,16 @@ void CudaCalcTorchForceKernel::prepareTorchInputs(ContextImpl& context, vector<t
         cu.executeKernel(copyInputsKernel, inputArgs, numParticles);
         CHECK_RESULT(cuCtxSynchronize(), "Failed to synchronize the CUDA context"); // Synchronize before switching to the PyTorch context
     }
+    // Communicate posTensor, boxTensor between MPI ranks
+    // Broadcast from rank 0 to all other ranks
+    vector<torch::Tensor> posTensors = {posTensor};
+    auto work = m_mpi_group->broadcast(posTensors, {.rootRank = 0});
+    work->wait();
+    if (usePeriodic) {
+        vector<torch::Tensor> boxTensors = {boxTensor};
+        auto work = m_mpi_group->broadcast(boxTensors, {.rootRank = 0});
+        work->wait();
+    }
     // Prepare the input of the PyTorch model
     inputs = {posTensor};
     if (usePeriodic)
@@ -169,7 +184,7 @@ void CudaCalcTorchForceKernel::prepareTorchInputs(ContextImpl& context, vector<t
 /**
  * Add the computed forces to the total atomic forces.
  */
-void CudaCalcTorchForceKernel::addForces(torch::Tensor& forceTensor) {
+void CudaCalcTorchForceCommitteeKernel::addForces(torch::Tensor& forceTensor) {
     int numParticles = cu.getNumAtoms();
     // Get a pointer to the computed forces
     void* forceData = getTensorPointer(cu, forceTensor);
@@ -221,7 +236,7 @@ static void executeGraph(bool outputsForces, bool includeForces, torch::jit::scr
     }
 }
 
-double CudaCalcTorchForceKernel::execute(ContextImpl& context, bool includeForces, bool includeEnergy) {
+double CudaCalcTorchForceCommitteeKernel::execute(ContextImpl& context, bool includeForces, bool includeEnergy) {
     // Push to the PyTorch context
     CHECK_RESULT(cuCtxPushCurrent(primaryContext), "Failed to push the CUDA context");
     vector<torch::jit::IValue> inputs;
@@ -268,7 +283,13 @@ double CudaCalcTorchForceKernel::execute(ContextImpl& context, bool includeForce
         const c10::cuda::CUDAStreamGuard guard(stream);
         graphs[includeForces].replay();
     }
+    c10d::AllReduceOptions opts_c10d;
+    opts_c10d.reduceOp = c10::ReduceOp::AVG;
     if (includeForces) {
+        // do all_reduce on forces and average
+        vector<torch::Tensor> forceTensors = {forceTensor};
+        auto work = m_mpi_group->allreduce(forceTensors, opts_c10d);
+        work->wait();
         addForces(forceTensor);
     }
     map<string, double>& energyParamDerivs = cu.getEnergyParamDerivWorkspace();
@@ -277,6 +298,9 @@ double CudaCalcTorchForceKernel::execute(ContextImpl& context, bool includeForce
         globalTensors[name].grad().zero_();
     }
     // Get energy
+    vector<torch::Tensor> energyTensors = {energyTensor};
+    auto work = m_mpi_group->allreduce(energyTensors, opts_c10d);
+    work->wait();
     const double energy = energyTensor.item<double>(); // This implicitly synchronizes the PyTorch context
     // Pop to the PyTorch context
     CUcontext ctx;

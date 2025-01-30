@@ -1,5 +1,5 @@
-#ifndef OPENMM_CUDA_TORCH_KERNEL_FACTORY_H_
-#define OPENMM_CUDA_TORCH_KERNEL_FACTORY_H_
+#ifndef OPENMM_TORCH_FORCEC_IMPL_H_
+#define OPENMM_TORCH_FORCEC_IMPL_H_
 
 /* -------------------------------------------------------------------------- *
  *                                   OpenMM                                   *
@@ -9,7 +9,7 @@
  * Biological Structures at Stanford, funded under the NIH Roadmap for        *
  * Medical Research, grant U54 GM072970. See https://simtk.org.               *
  *                                                                            *
- * Portions copyright (c) 2018 Stanford University and the Authors.           *
+ * Portions copyright (c) 2018-2020 Stanford University and the Authors.      *
  * Authors: Peter Eastman                                                     *
  * Contributors:                                                              *
  *                                                                            *
@@ -32,19 +32,41 @@
  * USE OR OTHER DEALINGS IN THE SOFTWARE.                                     *
  * -------------------------------------------------------------------------- */
 
-#include "openmm/KernelFactory.h"
+#include "TorchForceCommittee.h"
+#include "openmm/internal/ForceImpl.h"
+#include "openmm/Kernel.h"
+#include <torch/torch.h>
+#include <utility>
+#include <set>
+#include <string>
 
-namespace OpenMM {
+namespace TorchCPlugin {
+
+class System;
 
 /**
- * This KernelFactory creates kernels for the CUDA implementation of the Torch plugin.
+ * This is the internal implementation of TorchForceCommittee.
  */
 
-class CudaTorchKernelFactory : public KernelFactory {
+class OPENMM_EXPORT_NN TorchForceCommitteeImpl : public OpenMM::ForceImpl {
 public:
-    KernelImpl* createKernelImpl(std::string name, const Platform& platform, ContextImpl& context) const;
+    TorchForceCommitteeImpl(const TorchForceCommittee& owner);
+    ~TorchForceCommitteeImpl();
+    void initialize(OpenMM::ContextImpl& context);
+    const TorchForceCommittee& getOwner() const {
+        return owner;
+    }
+    void updateContextState(OpenMM::ContextImpl& context, bool& forcesInvalid) {
+        // This force field doesn't update the state directly.
+    }
+    double calcForcesAndEnergy(OpenMM::ContextImpl& context, bool includeForces, bool includeEnergy, int groups);
+    std::map<std::string, double> getDefaultParameters();
+    std::vector<std::string> getKernelNames();
+private:
+    const TorchForceCommittee& owner;
+    OpenMM::Kernel kernel;
 };
 
-} // namespace OpenMM
+} // namespace TorchCPlugin
 
-#endif /*OPENMM_CUDA_TORCH_KERNEL_FACTORY_H_*/
+#endif /*OPENMM_TORCH_FORCEC_IMPL_H_*/

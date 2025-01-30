@@ -17,9 +17,9 @@ if platform.system() == 'Darwin':
     extra_compile_args += ['-stdlib=libc++', '-mmacosx-version-min=10.13']
     extra_link_args += ['-stdlib=libc++', '-mmacosx-version-min=10.13']
 
-extension = Extension(name='_openmmtorch',
+extension = Extension(name='_openmmtorchcommittee',
                       sources=['TorchPluginWrapper.cpp'],
-                      libraries=['OpenMM', 'OpenMMTorch'],
+                      libraries=['OpenMM', 'OpenMMTorchCommittee'],
                       include_dirs=[os.path.join(openmm_dir, 'include'), nn_plugin_header_dir] + torch_include_dirs,
                       library_dirs=[os.path.join(openmm_dir, 'lib'), nn_plugin_library_dir],
                       runtime_library_dirs=[os.path.join(openmm_dir, 'lib'), torch_dir],
@@ -27,9 +27,9 @@ extension = Extension(name='_openmmtorch',
                       extra_link_args=extra_link_args
                      )
 
-setup(name='openmmtorch',
+setup(name='openmmtorchcommittee',
       version=version,
-      py_modules=['openmmtorch'],
+      py_modules=['openmmtorchcommittee'],
       ext_modules=[extension],
       install_requires=['openmm', 'torch']
      )

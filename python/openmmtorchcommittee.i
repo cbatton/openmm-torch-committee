@@ -1,4 +1,4 @@
-%module openmmtorch
+%module openmmtorchcommittee
 
 %include "factory.i"
 %import(module="simtk.openmm") "swig/OpenMMSwigHeaders.i"
@@ -7,7 +7,7 @@
 %include <std_map.i>
 
 %{
-#include "TorchForce.h"
+#include "TorchForceCommittee.h"
 #include "OpenMM.h"
 #include "OpenMMAmoeba.h"
 #include "OpenMMDrude.h"
@@ -15,6 +15,7 @@
 #include "openmm/RPMDMonteCarloBarostat.h"
 #include <torch/csrc/jit/python/module_python.h>
 #include <torch/csrc/jit/serialization/import.h>
+#include <c10d/ProcessGroupNCCL.hpp>
 %}
 
 /*
@@ -58,12 +59,14 @@ namespace std {
 
 namespace TorchPlugin {
 
-class TorchForce : public OpenMM::Force {
+class TorchForceCommittee : public OpenMM::Force {
 public:
-    TorchForce(const std::string& file, const std::map<std::string, std::string>& properties = {});
-    TorchForce(const torch::jit::Module& module, const std::map<std::string, std::string>& properties = {});
+    // CHECK: Need to complete this!
+    TorchForceCommittee(const std::string& file, const std::map<std::string, std::string>& properties = {}, shared_ptr<c10d::ProcessGroupNCCL> processGroup);
+    TorchForceCommittee(const torch::jit::Module& module, const std::map<std::string, std::string>& properties = {}, shared_ptr<c10d::ProcessGroupNCCL> processGroup);
     const std::string& getFile() const;
     const torch::jit::Module& getModule() const;
+    const shared_ptr<c10d::ProcessGroupNCCL>& getMPIGroup() const;
     void setUsesPeriodicBoundaryConditions(bool periodic);
     bool usesPeriodicBoundaryConditions() const;
     void setOutputsForces(bool);
@@ -81,15 +84,15 @@ public:
     const std::map<std::string, std::string>& getProperties() const;
 
     /*
-     * Add methods for casting a Force to a TorchForce.
+     * Add methods for casting a Force to a TorchForceCommittee.
     */
     %extend {
-        static TorchPlugin::TorchForce& cast(OpenMM::Force& force) {
-            return dynamic_cast<TorchPlugin::TorchForce&>(force);
+        static TorchPlugin::TorchForceCommittee& cast(OpenMM::Force& force) {
+            return dynamic_cast<TorchPlugin::TorchForceCommittee&>(force);
         }
 
         static bool isinstance(OpenMM::Force& force) {
-            return (dynamic_cast<TorchPlugin::TorchForce*>(&force) != NULL);
+            return (dynamic_cast<TorchPlugin::TorchForceCommittee*>(&force) != NULL);
         }
     }
 };

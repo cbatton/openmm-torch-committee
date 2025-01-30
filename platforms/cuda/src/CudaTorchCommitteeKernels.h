@@ -1,5 +1,5 @@
-#ifndef TORCH_KERNELS_H_
-#define TORCH_KERNELS_H_
+#ifndef CUDA_TORCHC_KERNELS_H_
+#define CUDA_TORCHC_KERNELS_H_
 
 /* -------------------------------------------------------------------------- *
  *                                   OpenMM                                   *
@@ -9,9 +9,9 @@
  * Biological Structures at Stanford, funded under the NIH Roadmap for        *
  * Medical Research, grant U54 GM072970. See https://simtk.org.               *
  *                                                                            *
- * Portions copyright (c) 2018 Stanford University and the Authors.           *
+ * Portions copyright (c) 2018-2024 Stanford University and the Authors.      *
  * Authors: Peter Eastman                                                     *
- * Contributors:                                                              *
+ * Contributors: Raimondas Galvelis, Raul P. Pelaez                           *
  *                                                                            *
  * Permission is hereby granted, free of charge, to any person obtaining a    *
  * copy of this software and associated documentation files (the "Software"), *
@@ -32,33 +32,30 @@
  * USE OR OTHER DEALINGS IN THE SOFTWARE.                                     *
  * -------------------------------------------------------------------------- */
 
-#include "TorchForce.h"
-#include "openmm/KernelImpl.h"
-#include "openmm/Platform.h"
-#include "openmm/System.h"
-#include <torch/torch.h>
-#include <string>
+#include "TorchKernelsCommittee.h"
+#include "openmm/cuda/CudaContext.h"
+#include "openmm/cuda/CudaArray.h"
+#include <torch/version.h>
+#include <ATen/cuda/CUDAGraph.h>
+#include <set>
 
-namespace TorchPlugin {
+namespace TorchCPlugin {
 
 /**
- * This kernel is invoked by TorchForce to calculate the forces acting on the system and the energy of the system.
+ * This kernel is invoked by TorchForceCommittee to calculate the forces acting on the system and the energy of the system.
  */
-class CalcTorchForceKernel : public OpenMM::KernelImpl {
+class CudaCalcTorchForceCommitteeKernel : public CalcTorchForceCommitteeKernel {
 public:
-    static std::string Name() {
-        return "CalcTorchForce";
-    }
-    CalcTorchForceKernel(std::string name, const OpenMM::Platform& platform) : OpenMM::KernelImpl(name, platform) {
-    }
+    CudaCalcTorchForceCommitteeKernel(std::string name, const OpenMM::Platform& platform, OpenMM::CudaContext& cu);
+    ~CudaCalcTorchForceCommitteeKernel();
     /**
      * Initialize the kernel.
-     * 
+     *
      * @param system         the System this kernel will be applied to
-     * @param force          the TorchForce this kernel will be used for
+     * @param force          the TorchForceCommittee this kernel will be used for
      * @param module         the PyTorch module to use for computing forces and energy
      */
-    virtual void initialize(const OpenMM::System& system, const TorchForce& force, torch::jit::script::Module& module) = 0;
+    void initialize(const OpenMM::System& system, const TorchForceCommittee& force, torch::jit::script::Module& module, std::shared_ptr<c10d::ProcessGroupNCCL> mpi_group);
     /**
      * Execute the kernel to calculate the forces and/or energy.
      *
@@ -67,9 +64,30 @@ public:
      * @param includeEnergy  true if the energy should be calculated
      * @return the potential energy due to the force
      */
-    virtual double execute(OpenMM::ContextImpl& context, bool includeForces, bool includeEnergy) = 0;
+    double execute(OpenMM::ContextImpl& context, bool includeForces, bool includeEnergy);
+
+private:
+    bool hasInitializedKernel;
+    OpenMM::CudaContext& cu;
+    torch::jit::script::Module module;
+    std::shared_ptr<c10d::ProcessGroupNCCL> m_mpi_group;
+    torch::Tensor posTensor, boxTensor;
+    torch::Tensor energyTensor, forceTensor;
+    std::map<std::string, torch::Tensor> globalTensors;
+    std::vector<std::string> globalNames;
+    std::set<std::string> paramDerivs;
+    bool usePeriodic, outputsForces;
+    int rank = 0;
+    int world_size = 1;
+    CUfunction copyInputsKernel, addForcesKernel;
+    CUcontext primaryContext;
+    std::map<bool, at::cuda::CUDAGraph> graphs;
+    void prepareTorchInputs(OpenMM::ContextImpl& context, std::vector<torch::jit::IValue>& inputs, std::map<std::string, torch::Tensor>& derivInputs);
+    bool useGraphs;
+    void addForces(torch::Tensor& forceTensor);
+    int warmupSteps;
 };
 
-} // namespace TorchPlugin
+} // namespace TorchCPlugin
 
-#endif /*TORCH_KERNELS_H_*/
+#endif /*CUDA_TORCHC_KERNELS_H_*/

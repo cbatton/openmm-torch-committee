@@ -1,5 +1,5 @@
 /* -------------------------------------------------------------------------- *
- *                                   OpenMM                                   *
+ *                               OpenMM-NN                                      *
  * -------------------------------------------------------------------------- *
  * This is part of the OpenMM molecular simulation toolkit originating from   *
  * Simbios, the NIH National Center for Physics-Based Simulation of           *
@@ -29,44 +29,46 @@
  * USE OR OTHER DEALINGS IN THE SOFTWARE.                                     *
  * -------------------------------------------------------------------------- */
 
-#include "internal/TorchForceImpl.h"
-#include "TorchKernels.h"
-#include "openmm/OpenMMException.h"
-#include "openmm/internal/ContextImpl.h"
-#include <torch/script.h>
+#include <exception>
 
-using namespace TorchPlugin;
+#include "CudaTorchCommitteeKernelFactory.h"
+#include "CudaTorchCommitteeKernels.h"
+#include "openmm/internal/windowsExport.h"
+#include "openmm/internal/ContextImpl.h"
+#include "openmm/OpenMMException.h"
+#include <vector>
+
+using namespace TorchCPlugin;
 using namespace OpenMM;
 using namespace std;
 
-TorchForceImpl::TorchForceImpl(const TorchForce& owner) : owner(owner) {
+extern "C" OPENMM_EXPORT void registerPlatforms() {
 }
 
-TorchForceImpl::~TorchForceImpl() {
+extern "C" OPENMM_EXPORT void registerKernelFactories() {
+    try {
+        Platform& platform = Platform::getPlatformByName("CUDA");
+        CudaTorchCommitteeKernelFactory* factory = new CudaTorchCommitteeKernelFactory();
+        platform.registerKernelFactory(CalcTorchForceKernel::Name(), factory);
+    }
+    catch (std::exception ex) {
+        // Ignore
+    }
 }
 
-void TorchForceImpl::initialize(ContextImpl& context) {
-    auto module = owner.getModule().clone();
-    // Create the kernel.
-    kernel = context.getPlatform().createKernel(CalcTorchForceKernel::Name(), context);
-    kernel.getAs<CalcTorchForceKernel>().initialize(context.getSystem(), owner, module);
+extern "C" OPENMM_EXPORT void registerTorchCommitteeCudaKernelFactories() {
+    try {
+        Platform::getPlatformByName("CUDA");
+    }
+    catch (...) {
+        Platform::registerPlatform(new CudaPlatform());
+    }
+    registerKernelFactories();
 }
 
-double TorchForceImpl::calcForcesAndEnergy(ContextImpl& context, bool includeForces, bool includeEnergy, int groups) {
-    if ((groups&(1<<owner.getForceGroup())) != 0)
-        return kernel.getAs<CalcTorchForceKernel>().execute(context, includeForces, includeEnergy);
-    return 0.0;
-}
-
-map<string, double> TorchForceImpl::getDefaultParameters() {
-    map<string, double> parameters;
-    for (int i = 0; i < owner.getNumGlobalParameters(); i++)
-        parameters[owner.getGlobalParameterName(i)] = owner.getGlobalParameterDefaultValue(i);
-    return parameters;
-}
-
-std::vector<std::string> TorchForceImpl::getKernelNames() {
-    std::vector<std::string> names;
-    names.push_back(CalcTorchForceKernel::Name());
-    return names;
+KernelImpl* CudaTorchCommitteeKernelFactory::createKernelImpl(std::string name, const Platform& platform, ContextImpl& context) const {
+    CudaContext& cu = *static_cast<CudaPlatform::PlatformData*>(context.getPlatformData())->contexts[0];
+    if (name == CalcTorchForceKernel::Name())
+        return new CudaCalcTorchForceKernel(name, platform, cu);
+    throw OpenMMException((std::string("Tried to create kernel with illegal kernel name '")+name+"'").c_str());
 }

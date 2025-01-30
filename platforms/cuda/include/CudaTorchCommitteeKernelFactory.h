@@ -1,3 +1,6 @@
+#ifndef OPENMM_CUDA_TORCHC_KERNEL_FACTORY_H_
+#define OPENMM_CUDA_TORCHC_KERNEL_FACTORY_H_
+
 /* -------------------------------------------------------------------------- *
  *                                   OpenMM                                   *
  * -------------------------------------------------------------------------- *
@@ -29,8 +32,19 @@
  * USE OR OTHER DEALINGS IN THE SOFTWARE.                                     *
  * -------------------------------------------------------------------------- */
 
-#include "CudaTorchKernelSources.h"
+#include "openmm/KernelFactory.h"
 
-using namespace TorchPlugin;
-using namespace std;
+namespace OpenMM {
 
+/**
+ * This KernelFactory creates kernels for the CUDA implementation of the Torch Committee plugin.
+ */
+
+class CudaTorchCommitteeKernelFactory : public KernelFactory {
+public:
+    KernelImpl* createKernelImpl(std::string name, const Platform& platform, ContextImpl& context) const;
+};
+
+} // namespace OpenMM
+
+#endif /*OPENMM_CUDA_TORCHC_KERNEL_FACTORY_H_*/
