@@ -16,6 +16,7 @@
 #include <torch/csrc/jit/python/module_python.h>
 #include <torch/csrc/jit/serialization/import.h>
 #include <c10d/ProcessGroupNCCL.hpp>
+#include <c10d/ProcessGroupMPI.hpp>
 %}
 
 /*
@@ -62,11 +63,11 @@ namespace TorchPlugin {
 class TorchForceCommittee : public OpenMM::Force {
 public:
     // CHECK: Need to complete this!
-    TorchForceCommittee(const std::string& file, const std::map<std::string, std::string>& properties = {}, shared_ptr<c10d::ProcessGroupNCCL> processGroup);
-    TorchForceCommittee(const torch::jit::Module& module, const std::map<std::string, std::string>& properties = {}, shared_ptr<c10d::ProcessGroupNCCL> processGroup);
+    TorchForceCommittee(const std::string& file, shared_ptr<c10d::ProcessGroup> processGroup, const std::map<std::string, std::string>& properties = {});
+    TorchForceCommittee(const torch::jit::Module& module, shared_ptr<c10d::ProcessGroup> processGroup, const std::map<std::string, std::string>& properties = {});
     const std::string& getFile() const;
     const torch::jit::Module& getModule() const;
-    const shared_ptr<c10d::ProcessGroupNCCL>& getMPIGroup() const;
+    const shared_ptr<c10d::ProcessGroup>& getMPIGroup() const;
     void setUsesPeriodicBoundaryConditions(bool periodic);
     bool usesPeriodicBoundaryConditions() const;
     void setOutputsForces(bool);

@@ -51,7 +51,7 @@ using namespace std;
         throw OpenMMException(m.str());                                          \
     }
 
-CudaCalcTorchForceCommitteeKernel::CudaCalcTorchForceCommitteeKernel(string name, const Platform& platform, CudaContext& cu) : CalcTorchForceKernel(name, platform), hasInitializedKernel(false), cu(cu) {
+CudaCalcTorchForceCommitteeKernel::CudaCalcTorchForceCommitteeKernel(string name, const Platform& platform, CudaContext& cu) : CalcTorchForceCommitteeKernel(name, platform), hasInitializedKernel(false), cu(cu) {
     // Explicitly activate the primary context
     CHECK_RESULT(cuDevicePrimaryCtxRetain(&primaryContext, cu.getDevice()), "Failed to retain the primary context");
 }
@@ -60,9 +60,12 @@ CudaCalcTorchForceCommitteeKernel::~CudaCalcTorchForceCommitteeKernel() {
     cuDevicePrimaryCtxRelease(cu.getDevice());
 }
 
-void CudaCalcTorchForceCommitteeKernel::initialize(const System& system, const TorchForce& force, torch::jit::script::Module& module, shared_ptr<c10d::ProcessGroupNCCL> mpi_group) {
+void CudaCalcTorchForceCommitteeKernel::initialize(const System& system, const TorchForceCommittee& force, torch::jit::script::Module& module, const shared_ptr<c10d::ProcessGroup>& mpi_group) {
     this->module = module;
     m_mpi_group = mpi_group;
+    if (auto group_type = dynamic_pointer_cast<c10d::ProcessGroupNCCL>(m_mpi_group)) {
+        throw OpenMMException("ProcessGroup is not of type ProcessGroupNCCL");
+    }
     usePeriodic = force.usesPeriodicBoundaryConditions();
     outputsForces = force.getOutputsForces();
     for (int i = 0; i < force.getNumGlobalParameters(); i++)
@@ -102,7 +105,7 @@ void CudaCalcTorchForceCommitteeKernel::initialize(const System& system, const T
     // Initialize CUDA objects for OpenMM-Torch
     ContextSelector selector(cu); // Switch to the OpenMM context
     map<string, string> defines;
-    CUmodule program = cu.createModule(CudaTorchKernelSources::torchForce, defines);
+    CUmodule program = cu.createModule(CudaTorchCommitteeKernelSources::torchForce, defines);
     copyInputsKernel = cu.getKernel(program, "copyInputs");
     addForcesKernel = cu.getKernel(program, "addForces");
     auto properties = force.getProperties();
@@ -283,8 +286,8 @@ double CudaCalcTorchForceCommitteeKernel::execute(ContextImpl& context, bool inc
         const c10::cuda::CUDAStreamGuard guard(stream);
         graphs[includeForces].replay();
     }
-    c10d::AllReduceOptions opts_c10d;
-    opts_c10d.reduceOp = c10::ReduceOp::AVG;
+    c10d::AllreduceOptions opts_c10d;
+    opts_c10d.reduceOp = c10d::ReduceOp::AVG;
     if (includeForces) {
         // do all_reduce on forces and average
         vector<torch::Tensor> forceTensors = {forceTensor};

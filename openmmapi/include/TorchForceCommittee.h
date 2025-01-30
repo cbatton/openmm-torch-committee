@@ -39,6 +39,8 @@
 #include <vector>
 #include <torch/torch.h>
 #include <c10d/ProcessGroupNCCL.hpp>
+#include <c10d/ProcessGroupMPI.hpp>
+#include <c10d/ProcessGroup.hpp>
 #include "internal/windowsExportTorch.h"
 
 namespace TorchCPlugin {
@@ -61,7 +63,7 @@ public:
      * @param properties optional map of properties
      */
     TorchForceCommittee(const std::string& file,
-               const std::shared_ptr<c10d::ProcessGroupNCCL>& mpi_group,
+               const std::shared_ptr<c10d::ProcessGroup>& mpi_group,
                const std::map<std::string, std::string>& properties = {});
     /**
      * Create a TorchForceCommittee.  The network is defined by a PyTorch ScriptModule
@@ -71,7 +73,7 @@ public:
      * @param module   an instance of the torch module
      * @param properties optional map of properties
      */
-    TorchForceCommittee(const torch::jit::Module &module, const std::shared_ptr<c10d::ProcessGroupNCCL>& mpi_group, const std::map<std::string, std::string>& properties = {});
+    TorchForceCommittee(const torch::jit::Module &module, const std::shared_ptr<c10d::ProcessGroup>& mpi_group, const std::map<std::string, std::string>& properties = {});
     /**
      * Get the path to the file containing the network.
      * If the TorchForceCommittee instance was constructed with a module, instead of a filename,
@@ -85,7 +87,7 @@ public:
     /**
      * Get the process group used for MPI communication.
      */
-    const std::shared_ptr<c10d::ProcessGroupNCCL>& getMPIGroup() const;
+    const std::shared_ptr<c10d::ProcessGroup>& getMPIGroup() const;
     /**
      * Set whether this force makes use of periodic boundary conditions.  If this is set
      * to true, the network must take a 3x3 tensor as its second input, which
@@ -185,7 +187,7 @@ public:
     const std::map<std::string, std::string>& getProperties() const;
 protected:
     OpenMM::ForceImpl* createImpl() const;
-    std::shared_ptr<c10d::ProcessGroupNCCL> m_mpi_group;
+    std::shared_ptr<c10d::ProcessGroup> m_mpi_group;
 private:
     class GlobalParameterInfo;
     std::string file;

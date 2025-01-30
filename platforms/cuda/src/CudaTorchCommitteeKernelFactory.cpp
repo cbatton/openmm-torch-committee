@@ -49,7 +49,7 @@ extern "C" OPENMM_EXPORT void registerKernelFactories() {
     try {
         Platform& platform = Platform::getPlatformByName("CUDA");
         CudaTorchCommitteeKernelFactory* factory = new CudaTorchCommitteeKernelFactory();
-        platform.registerKernelFactory(CalcTorchForceKernel::Name(), factory);
+        platform.registerKernelFactory(CalcTorchForceCommitteeKernel::Name(), factory);
     }
     catch (std::exception ex) {
         // Ignore
@@ -68,7 +68,7 @@ extern "C" OPENMM_EXPORT void registerTorchCommitteeCudaKernelFactories() {
 
 KernelImpl* CudaTorchCommitteeKernelFactory::createKernelImpl(std::string name, const Platform& platform, ContextImpl& context) const {
     CudaContext& cu = *static_cast<CudaPlatform::PlatformData*>(context.getPlatformData())->contexts[0];
-    if (name == CalcTorchForceKernel::Name())
-        return new CudaCalcTorchForceKernel(name, platform, cu);
+    if (name == CalcTorchForceCommitteeKernel::Name())
+        return new CudaCalcTorchForceCommitteeKernel(name, platform, cu);
     throw OpenMMException((std::string("Tried to create kernel with illegal kernel name '")+name+"'").c_str());
 }

@@ -30,10 +30,10 @@
  * -------------------------------------------------------------------------- */
 
 /**
- * This tests the CUDA implementation of TorchForce.
+ * This tests the CUDA implementation of TorchForceCommittee.
  */
 
-#include "TorchForce.h"
+#include "TorchForceCommittee.h"
 #include "openmm/internal/AssertionUtilities.h"
 #include "openmm/Context.h"
 #include "openmm/Platform.h"
@@ -46,11 +46,11 @@
 #include <torch/csrc/jit/serialization/import.h>
 #include <vector>
 
-using namespace TorchPlugin;
+using namespace TorchCPlugin;
 using namespace OpenMM;
 using namespace std;
 
-extern "C" OPENMM_EXPORT void registerTorchCudaKernelFactories();
+extern "C" OPENMM_EXPORT void registerTorchCommitteeCudaKernelFactories();
 
 void testForce(bool outputsForces) {
     // Create a random cloud of particles.
@@ -65,7 +65,7 @@ void testForce(bool outputsForces) {
         positions[i] = Vec3(genrand_real2(sfmt), genrand_real2(sfmt), genrand_real2(sfmt))*10;
     }
     auto model = torch::jit::load(outputsForces ? "tests/forces.pt" : "tests/central.pt");
-    TorchForce* force = new TorchForce(model);
+    TorchForceCommittee* force = new TorchForceCommittee(model, nullptr);
     force->setOutputsForces(outputsForces);
     system.addForce(force);
 
@@ -102,7 +102,7 @@ void testPeriodicForce() {
         system.addParticle(1.0);
         positions[i] = Vec3(genrand_real2(sfmt), genrand_real2(sfmt), genrand_real2(sfmt))*10;
     }
-    TorchForce* force = new TorchForce("tests/periodic.pt");
+    TorchForceCommittee* force = new TorchForceCommittee("tests/periodic.pt", nullptr);
     force->setUsesPeriodicBoundaryConditions(true);
     system.addForce(force);
 
@@ -141,7 +141,7 @@ void testGlobal(bool useGraphs) {
         system.addParticle(1.0);
         positions[i] = Vec3(genrand_real2(sfmt), genrand_real2(sfmt), genrand_real2(sfmt))*10;
     }
-    TorchForce* force = new TorchForce("tests/global.pt");
+    TorchForceCommittee* force = new TorchForceCommittee("tests/global.pt", nullptr);
     force->addGlobalParameter("k", 2.0);
     force->addEnergyParameterDerivative("k");
     force->setProperty("useCUDAGraphs", useGraphs ? "true" : "false");
@@ -190,7 +190,7 @@ void testGlobal(bool useGraphs) {
 
 int main(int argc, char* argv[]) {
     try {
-        registerTorchCudaKernelFactories();
+        registerTorchCommitteeCudaKernelFactories();
         if (argc > 1)
             Platform::getPlatformByName("CUDA").setPropertyDefaultValue("Precision", string(argv[1]));
         testForce(false);
