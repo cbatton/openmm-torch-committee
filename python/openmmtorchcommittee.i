@@ -5,6 +5,7 @@
 %include "swig/typemaps.i"
 %include <std_string.i>
 %include <std_map.i>
+%include <std_shared_ptr.i>
 
 %{
 #include "TorchForceCommittee.h"
@@ -17,7 +18,17 @@
 #include <torch/csrc/jit/serialization/import.h>
 #include <c10d/ProcessGroupNCCL.hpp>
 #include <c10d/ProcessGroupMPI.hpp>
+#include <c10d/ProcessGroup.hpp>
+#include <memory>
 %}
+
+// Tell SWIG about the c10d::ProcessGroup class
+namespace c10d {
+    class ProcessGroup;
+}
+
+// Instantiate std::shared_ptr for c10d::ProcessGroup
+%shared_ptr(std::shared_ptr<c10d::ProcessGroup>)
 
 /*
  * Convert C++ exceptions to Python exceptions.
@@ -62,12 +73,11 @@ namespace TorchCPlugin {
 
 class TorchForceCommittee : public OpenMM::Force {
 public:
-    // CHECK: Need to complete this!
-    TorchForceCommittee(const std::string& file, shared_ptr<c10d::ProcessGroup> processGroup, const std::map<std::string, std::string>& properties = {});
-    TorchForceCommittee(const torch::jit::Module& module, shared_ptr<c10d::ProcessGroup> processGroup, const std::map<std::string, std::string>& properties = {});
+    TorchForceCommittee(const std::string& file, const std::shared_ptr<c10d::ProcessGroup> processGroup, const std::map<std::string, std::string>& properties = {});
+    TorchForceCommittee(const torch::jit::Module& module, const std::shared_ptr<c10d::ProcessGroup> processGroup, const std::map<std::string, std::string>& properties = {});
     const std::string& getFile() const;
     const torch::jit::Module& getModule() const;
-    const shared_ptr<c10d::ProcessGroup>& getMPIGroup() const;
+    const std::shared_ptr<c10d::ProcessGroup>& getMPIGroup() const;
     void setUsesPeriodicBoundaryConditions(bool periodic);
     bool usesPeriodicBoundaryConditions() const;
     void setOutputsForces(bool);

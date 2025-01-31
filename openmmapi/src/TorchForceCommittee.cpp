@@ -44,7 +44,7 @@ using namespace TorchCPlugin;
 using namespace OpenMM;
 using namespace std;
 
-TorchForceCommittee::TorchForceCommittee(const torch::jit::Module& module, const shared_ptr<c10d::ProcessGroup>& mpi_group, const map<string, string>& properties) : file(), usePeriodic(false), outputsForces(false), module(module), m_mpi_group(mpi_group) {
+TorchForceCommittee::TorchForceCommittee(const torch::jit::Module& module, const std::shared_ptr<c10d::ProcessGroup>& mpi_group, const map<string, string>& properties) : file(), usePeriodic(false), outputsForces(false), module(module), m_mpi_group(mpi_group) {
     const std::map<std::string, std::string> defaultProperties = {{"useCUDAGraphs", "false"}, {"CUDAGraphWarmupSteps", "10"}};
     this->properties = defaultProperties;
     for (auto& property : properties) {
@@ -56,7 +56,7 @@ TorchForceCommittee::TorchForceCommittee(const torch::jit::Module& module, const
     world_size = m_mpi_group->getSize();
 }
 
-TorchForceCommittee::TorchForceCommittee(const std::string& file, const shared_ptr<c10d::ProcessGroup>& mpi_group, const map<string, string>& properties) : TorchForceCommittee(torch::jit::load(file), mpi_group, properties) {
+TorchForceCommittee::TorchForceCommittee(const std::string& file, const std::shared_ptr<c10d::ProcessGroup>& mpi_group, const map<string, string>& properties) : TorchForceCommittee(torch::jit::load(file), mpi_group, properties) {
     this->file = file;
 }
 
@@ -68,7 +68,7 @@ const torch::jit::Module& TorchForceCommittee::getModule() const {
     return this->module;
 }
 
-const shared_ptr<c10d::ProcessGroup>& TorchForceCommittee::getMPIGroup() const {
+const std::shared_ptr<c10d::ProcessGroup>& TorchForceCommittee::getMPIGroup() const {
     return m_mpi_group;
 }
 
