@@ -73,8 +73,8 @@ namespace TorchCPlugin {
 
 class TorchForceCommittee : public OpenMM::Force {
 public:
-    TorchForceCommittee(const std::string& file, const std::shared_ptr<c10d::ProcessGroup> processGroup, const std::map<std::string, std::string>& properties = {});
-    TorchForceCommittee(const torch::jit::Module& module, const std::shared_ptr<c10d::ProcessGroup> processGroup, const std::map<std::string, std::string>& properties = {});
+    TorchForceCommittee(const std::string& file, const std::shared_ptr<c10d::ProcessGroup>& mpi_group, const std::map<std::string, std::string>& properties = {});
+    TorchForceCommittee(const torch::jit::Module& module, const std::shared_ptr<c10d::ProcessGroup>& mpi_group, const std::map<std::string, std::string>& properties = {});
     const std::string& getFile() const;
     const torch::jit::Module& getModule() const;
     const std::shared_ptr<c10d::ProcessGroup>& getMPIGroup() const;
