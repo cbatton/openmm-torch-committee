@@ -58,7 +58,7 @@ namespace std {
     %template(property_map) map<string, string>;
 }
 
-namespace TorchPlugin {
+namespace TorchCPlugin {
 
 class TorchForceCommittee : public OpenMM::Force {
 public:
@@ -88,12 +88,12 @@ public:
      * Add methods for casting a Force to a TorchForceCommittee.
     */
     %extend {
-        static TorchPlugin::TorchForceCommittee& cast(OpenMM::Force& force) {
-            return dynamic_cast<TorchPlugin::TorchForceCommittee&>(force);
+        static TorchCPlugin::TorchForceCommittee& cast(OpenMM::Force& force) {
+            return dynamic_cast<TorchCPlugin::TorchForceCommittee&>(force);
         }
 
         static bool isinstance(OpenMM::Force& force) {
-            return (dynamic_cast<TorchPlugin::TorchForceCommittee*>(&force) != NULL);
+            return (dynamic_cast<TorchCPlugin::TorchForceCommittee*>(&force) != NULL);
         }
     }
 };
