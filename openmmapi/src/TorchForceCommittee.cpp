@@ -44,7 +44,7 @@ using namespace TorchCPlugin;
 using namespace OpenMM;
 using namespace std;
 
-TorchForceCommittee::TorchForceCommittee(const torch::jit::Module& module, const std::string& backend, const int rank, const int world_size, const std::string& master_addr, const int master_port, const map<string, string>& properties) : file(), usePeriodic(false), outputsForces(false), module(module), m_mpi_group(nullptr) {
+TorchForceCommittee::TorchForceCommittee(const torch::jit::Module& module, const std::string& backend, const int rank, const int world_size, const std::string& master_addr, const int master_port, const map<string, string>& properties) : file(), usePeriodic(false), outputsForces(false), module(module) {
     const std::map<std::string, std::string> defaultProperties = {{"useCUDAGraphs", "false"}, {"CUDAGraphWarmupSteps", "10"}};
     this->properties = defaultProperties;
     for (auto& property : properties) {

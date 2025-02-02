@@ -5,8 +5,6 @@
 %include "swig/typemaps.i"
 %include <std_string.i>
 %include <std_map.i>
-%include <std_shared_ptr.i>
-%include <intrusive_ptr.i>
 
 %{
 #include "TorchForceCommittee.h"
@@ -20,6 +18,7 @@
 #include <c10d/ProcessGroupNCCL.hpp>
 #include <c10d/ProcessGroupMPI.hpp>
 #include <c10d/Backend.hpp>
+#include <c10/util/intrusive_ptr.h>
 #include <memory>
 %}
 
@@ -27,6 +26,10 @@
 namespace c10d {
     class Backend;
 }
+
+// Ignore c10d::Backend, intrusive pointers
+%ignore TorchCPlugin::TorchForceCommittee::initializeBackend;
+%ignore TorchCPlugin::TorchForceCommittee::getMPIGroup;
 
 /*
  * Convert C++ exceptions to Python exceptions.
@@ -75,8 +78,6 @@ public:
     TorchForceCommittee(const torch::jit::Module& module, const std::string& backend, const int rank, const int world_size, const std::string& master_addr, const int master_port, const std::map<std::string, std::string>& properties = {});
     const std::string& getFile() const;
     const torch::jit::Module& getModule() const;
-    c10::intrusive_ptr<c10d::Backend> initializeBackend(const std::string& backend, const int rank, const int world_size, const std::string& master_addr, const int master_port);
-    const c10::intrusive_ptr<c10d::Backend>& getMPIGroup() const;
     int getRank() const;
     int getWorldSize() const;
     void setUsesPeriodicBoundaryConditions(bool periodic);

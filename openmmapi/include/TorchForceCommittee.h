@@ -38,8 +38,10 @@
 #include <string>
 #include <vector>
 #include <torch/torch.h>
+#include <c10/util/intrusive_ptr.h>
 #include <c10d/ProcessGroupNCCL.hpp>
 #include <c10d/ProcessGroupMPI.hpp>
+#include <c10d/Backend.hpp>
 #include "internal/windowsExportTorch.h"
 
 namespace TorchCPlugin {
@@ -206,7 +208,7 @@ public:
     const std::map<std::string, std::string>& getProperties() const;
 protected:
     OpenMM::ForceImpl* createImpl() const;
-    c10::intrusive_ptr<c10d::Backend> m_mpi_group;
+    c10::intrusive_ptr<c10d::Backend> m_mpi_group = nullptr;
 private:
     class GlobalParameterInfo;
     std::string file;
