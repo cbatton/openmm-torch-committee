@@ -55,7 +55,7 @@ public:
      * @param force          the TorchForceCommittee this kernel will be used for
      * @param module         the PyTorch module to use for computing forces and energy
      */
-    void initialize(const OpenMM::System& system, const TorchForceCommittee& force, torch::jit::script::Module& module, const std::shared_ptr<c10d::ProcessGroup>& mpi_group);
+    void initialize(const OpenMM::System& system, const TorchForceCommittee& force, torch::jit::script::Module& module, const c10::intrusive_ptr<c10d::Backend>& mpi_group);
     /**
      * Execute the kernel to calculate the forces and/or energy.
      *
@@ -70,7 +70,7 @@ private:
     bool hasInitializedKernel;
     OpenMM::CudaContext& cu;
     torch::jit::script::Module module;
-    std::shared_ptr<c10d::ProcessGroup> m_mpi_group;
+    c10::intrusive_ptr<c10d::Backend> m_mpi_group;
     torch::Tensor posTensor, boxTensor;
     torch::Tensor energyTensor, forceTensor;
     std::map<std::string, torch::Tensor> globalTensors;

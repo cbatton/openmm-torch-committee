@@ -60,12 +60,9 @@ CudaCalcTorchForceCommitteeKernel::~CudaCalcTorchForceCommitteeKernel() {
     cuDevicePrimaryCtxRelease(cu.getDevice());
 }
 
-void CudaCalcTorchForceCommitteeKernel::initialize(const System& system, const TorchForceCommittee& force, torch::jit::script::Module& module, const shared_ptr<c10d::ProcessGroup>& mpi_group) {
+void CudaCalcTorchForceCommitteeKernel::initialize(const System& system, const TorchForceCommittee& force, torch::jit::script::Module& module, const c10::intrusive_ptr<c10d::Backend>& mpi_group) {
     this->module = module;
     m_mpi_group = mpi_group;
-    if (auto group_type = dynamic_pointer_cast<c10d::ProcessGroupNCCL>(m_mpi_group)) {
-        throw OpenMMException("ProcessGroup is not of type ProcessGroupNCCL");
-    }
     usePeriodic = force.usesPeriodicBoundaryConditions();
     outputsForces = force.getOutputsForces();
     for (int i = 0; i < force.getNumGlobalParameters(); i++)

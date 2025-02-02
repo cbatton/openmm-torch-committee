@@ -62,12 +62,9 @@ static map<string, double>& extractEnergyParameterDerivatives(ContextImpl& conte
 ReferenceCalcTorchForceCommitteeKernel::~ReferenceCalcTorchForceCommitteeKernel() {
 }
 
-void ReferenceCalcTorchForceCommitteeKernel::initialize(const System& system, const TorchForceCommittee& force, torch::jit::script::Module& module, const std::shared_ptr<c10d::ProcessGroup>& mpi_group) {
+void ReferenceCalcTorchForceCommitteeKernel::initialize(const System& system, const TorchForceCommittee& force, torch::jit::script::Module& module, const c10::intrusive_ptr<c10d::Backend>& mpi_group) {
     this->module = module;
     m_mpi_group = mpi_group;
-    if (auto group_type = dynamic_pointer_cast<c10d::ProcessGroupMPI>(m_mpi_group)) {
-        throw OpenMMException("ProcessGroup is not of type ProcessGroupMPI");
-    }
     this->module.eval();
     this->module = torch::jit::freeze(this->module);
     usePeriodic = force.usesPeriodicBoundaryConditions();

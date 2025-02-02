@@ -89,13 +89,13 @@ void serializeAndDeserialize(TorchForceCommittee force) {
 void testSerializationFromModule() {
     string fileName = "tests/forces.pt";
     torch::jit::Module module = torch::jit::load(fileName);
-    TorchForceCommittee force(module);
+    TorchForceCommittee force(module, "mpi", 0, 1, "localhost", 29500);
     serializeAndDeserialize(force);
 }
 
 void testSerializationFromFile() {
     string fileName = "tests/forces.pt";
-    TorchForceCommittee force(fileName);
+    TorchForceCommittee force(fileName, "mpi", 0, 1, "localhost", 29500);
     serializeAndDeserialize(force);
 }
 

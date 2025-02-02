@@ -38,13 +38,13 @@
 #include <torch/csrc/jit/serialization/import.h>
 #include <c10d/ProcessGroupNCCL.hpp>
 #include <c10d/ProcessGroupMPI.hpp>
-#include <c10d/ProcessGroup.hpp>
+#include <c10d/TCPStore.hpp>
 
 using namespace TorchCPlugin;
 using namespace OpenMM;
 using namespace std;
 
-TorchForceCommittee::TorchForceCommittee(const torch::jit::Module& module, const map<string, string>& properties) : file(), usePeriodic(false), outputsForces(false), module(module), m_mpi_group(nullptr) {
+TorchForceCommittee::TorchForceCommittee(const torch::jit::Module& module, const std::string& backend, const int rank, const int world_size, const std::string& master_addr, const int master_port, const map<string, string>& properties) : file(), usePeriodic(false), outputsForces(false), module(module), m_mpi_group(nullptr) {
     const std::map<std::string, std::string> defaultProperties = {{"useCUDAGraphs", "false"}, {"CUDAGraphWarmupSteps", "10"}};
     this->properties = defaultProperties;
     for (auto& property : properties) {
@@ -52,13 +52,10 @@ TorchForceCommittee::TorchForceCommittee(const torch::jit::Module& module, const
             throw OpenMMException("TorchForceCommittee: Unknown property '" + property.first + "'");
         this->properties[property.first] = property.second;
     }
-    //auto options = c10d::ProcessGroupNCCL::Options::create();
-    //auto m_mpi_group_nccl = std::make_shared<c10d::ProcessGroupNCCL>(0, 1, options);
-    rank = 0; // m_mpi_group->getRank();
-    world_size = 1; // m_mpi_group->getSize();
+    m_mpi_group = initializeBackend(backend, rank, world_size, master_addr, master_port);
 }
 
-TorchForceCommittee::TorchForceCommittee(const std::string& file, const map<string, string>& properties) : TorchForceCommittee(torch::jit::load(file), properties) {
+TorchForceCommittee::TorchForceCommittee(const std::string& file, const std::string& backend, const int rank, const int world_size, const std::string& master_addr, const int master_port, const map<string, string>& properties) : TorchForceCommittee(torch::jit::load(file), backend, rank, world_size, master_addr, master_port, properties) {
     this->file = file;
 }
 
@@ -70,8 +67,30 @@ const torch::jit::Module& TorchForceCommittee::getModule() const {
     return this->module;
 }
 
-const std::shared_ptr<c10d::ProcessGroup>& TorchForceCommittee::getMPIGroup() const {
+c10::intrusive_ptr<c10d::Backend> TorchForceCommittee::initializeBackend(const std::string& backend, const int rank, const int world_size, const std::string& master_addr, const int master_port) {
+    if (backend == "nccl") {
+        auto store = c10::make_intrusive<c10d::TCPStore>(
+            master_addr, master_port, world_size, rank == 0
+        );
+        auto options = c10d::ProcessGroupNCCL::Options::create();
+        return c10::make_intrusive<c10d::ProcessGroupNCCL>(store, rank, world_size, options);
+    } else if (backend == "mpi") {
+        return c10d::ProcessGroupMPI::createProcessGroupMPI();
+    } else {
+        throw OpenMMException("TorchForceCommittee: Unknown backend '" + backend + "'");
+    }
+}
+
+const c10::intrusive_ptr<c10d::Backend>& TorchForceCommittee::getMPIGroup() const {
     return m_mpi_group;
+}
+
+int TorchForceCommittee::getRank() const {
+    return m_mpi_group->getRank();
+}
+
+int TorchForceCommittee::getWorldSize() const {
+    return m_mpi_group->getSize();
 }
 
 ForceImpl* TorchForceCommittee::createImpl() const {

@@ -65,7 +65,7 @@ void testForce(bool outputsForces) {
         positions[i] = Vec3(genrand_real2(sfmt), genrand_real2(sfmt), genrand_real2(sfmt))*10;
     }
     auto model = torch::jit::load(outputsForces ? "tests/forces.pt" : "tests/central.pt");
-    TorchForceCommittee* force = new TorchForceCommittee(model);
+    TorchForceCommittee* force = new TorchForceCommittee(model, "nccl", 0, 1, "localhost", 29500);
     force->setOutputsForces(outputsForces);
     system.addForce(force);
 
@@ -102,7 +102,7 @@ void testPeriodicForce() {
         system.addParticle(1.0);
         positions[i] = Vec3(genrand_real2(sfmt), genrand_real2(sfmt), genrand_real2(sfmt))*10;
     }
-    TorchForceCommittee* force = new TorchForceCommittee("tests/periodic.pt");
+    TorchForceCommittee* force = new TorchForceCommittee("tests/periodic.pt", "nccl", 0, 1, "localhost", 29500);
     force->setUsesPeriodicBoundaryConditions(true);
     system.addForce(force);
 
@@ -141,7 +141,7 @@ void testGlobal(bool useGraphs) {
         system.addParticle(1.0);
         positions[i] = Vec3(genrand_real2(sfmt), genrand_real2(sfmt), genrand_real2(sfmt))*10;
     }
-    TorchForceCommittee* force = new TorchForceCommittee("tests/global.pt");
+    TorchForceCommittee* force = new TorchForceCommittee("tests/global.pt", "nccl", 0, 1, "localhost", 29500);
     force->addGlobalParameter("k", 2.0);
     force->addEnergyParameterDerivative("k");
     force->setProperty("useCUDAGraphs", useGraphs ? "true" : "false");

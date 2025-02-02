@@ -40,7 +40,6 @@
 #include <torch/torch.h>
 #include <c10d/ProcessGroupNCCL.hpp>
 #include <c10d/ProcessGroupMPI.hpp>
-#include <c10d/ProcessGroup.hpp>
 #include "internal/windowsExportTorch.h"
 
 namespace TorchCPlugin {
@@ -61,8 +60,13 @@ public:
      *
      * @param file       the path to the file containing the network
      * @param properties optional map of properties
+     * @param backend    the backend to use for MPI communication
+     * @param rank       the rank of the current process
+     * @param world_size the total number of processes
+     * @param master_addr the address of the master process
+     * @param master_port the port of the master process
      */
-    TorchForceCommittee(const std::string& file, const std::map<std::string, std::string>& properties = {});
+    TorchForceCommittee(const std::string& file, const std::string& backend, const int rank, const int world_size, const std::string& master_addr, const int master_port, const std::map<std::string, std::string>& properties = {});
     /**
      * Create a TorchForceCommittee.  The network is defined by a PyTorch ScriptModule
      * Note that this constructor makes a copy of the provided module.
@@ -70,8 +74,13 @@ public:
      *
      * @param module   an instance of the torch module
      * @param properties optional map of properties
+     * @param backend    the backend to use for MPI communication
+     * @param rank       the rank of the current process
+     * @param world_size the total number of processes
+     * @param master_addr the address of the master process
+     * @param master_port the port of the master process
      */
-    TorchForceCommittee(const torch::jit::Module &module, const std::map<std::string, std::string>& properties = {});
+    TorchForceCommittee(const torch::jit::Module &module, const std::string& backend, const int rank, const int world_size, const std::string& master_addr, const int master_port, const std::map<std::string, std::string>& properties = {});
     /**
      * Get the path to the file containing the network.
      * If the TorchForceCommittee instance was constructed with a module, instead of a filename,
@@ -83,9 +92,21 @@ public:
      */
     const torch::jit::Module & getModule() const;
     /**
+     * Initialize the backend for MPI communication.
+     */
+    c10::intrusive_ptr<c10d::Backend> initializeBackend(const std::string& backend, const int rank, const int world_size, const std::string& master_addr, const int master_port);
+    /**
      * Get the process group used for MPI communication.
      */
-    const std::shared_ptr<c10d::ProcessGroup>& getMPIGroup() const;
+    const c10::intrusive_ptr<c10d::Backend>& getMPIGroup() const;
+    /**
+     * Get the rank of the current process.
+     */
+    int getRank() const;
+    /**
+     * Get the total number of processes.
+     */
+    int getWorldSize() const;
     /**
      * Set whether this force makes use of periodic boundary conditions.  If this is set
      * to true, the network must take a 3x3 tensor as its second input, which
@@ -185,7 +206,7 @@ public:
     const std::map<std::string, std::string>& getProperties() const;
 protected:
     OpenMM::ForceImpl* createImpl() const;
-    std::shared_ptr<c10d::ProcessGroup> m_mpi_group;
+    c10::intrusive_ptr<c10d::Backend> m_mpi_group;
 private:
     class GlobalParameterInfo;
     std::string file;
@@ -195,8 +216,6 @@ private:
     torch::jit::Module module;
     std::map<std::string, std::string> properties;
     std::string emptyProperty;
-    int rank = 0;
-    int world_size = 1;
 };
 
 /**
