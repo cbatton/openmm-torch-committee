@@ -44,7 +44,7 @@ using namespace TorchCPlugin;
 using namespace OpenMM;
 using namespace std;
 
-TorchForceCommittee::TorchForceCommittee(const torch::jit::Module& module, const std::shared_ptr<c10d::ProcessGroup>& mpi_group, const map<string, string>& properties) : file(), usePeriodic(false), outputsForces(false), module(module), m_mpi_group(mpi_group) {
+TorchForceCommittee::TorchForceCommittee(const torch::jit::Module& module, const map<string, string>& properties) : file(), usePeriodic(false), outputsForces(false), module(module), m_mpi_group(nullptr) {
     const std::map<std::string, std::string> defaultProperties = {{"useCUDAGraphs", "false"}, {"CUDAGraphWarmupSteps", "10"}};
     this->properties = defaultProperties;
     for (auto& property : properties) {
@@ -52,11 +52,13 @@ TorchForceCommittee::TorchForceCommittee(const torch::jit::Module& module, const
             throw OpenMMException("TorchForceCommittee: Unknown property '" + property.first + "'");
         this->properties[property.first] = property.second;
     }
-    rank = m_mpi_group->getRank();
-    world_size = m_mpi_group->getSize();
+    //auto options = c10d::ProcessGroupNCCL::Options::create();
+    //auto m_mpi_group_nccl = std::make_shared<c10d::ProcessGroupNCCL>(0, 1, options);
+    rank = 0; // m_mpi_group->getRank();
+    world_size = 1; // m_mpi_group->getSize();
 }
 
-TorchForceCommittee::TorchForceCommittee(const std::string& file, const std::shared_ptr<c10d::ProcessGroup>& mpi_group, const map<string, string>& properties) : TorchForceCommittee(torch::jit::load(file), mpi_group, properties) {
+TorchForceCommittee::TorchForceCommittee(const std::string& file, const map<string, string>& properties) : TorchForceCommittee(torch::jit::load(file), properties) {
     this->file = file;
 }
 

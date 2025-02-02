@@ -62,9 +62,7 @@ public:
      * @param file       the path to the file containing the network
      * @param properties optional map of properties
      */
-    TorchForceCommittee(const std::string& file,
-               const std::shared_ptr<c10d::ProcessGroup>& mpi_group,
-               const std::map<std::string, std::string>& properties = {});
+    TorchForceCommittee(const std::string& file, const std::map<std::string, std::string>& properties = {});
     /**
      * Create a TorchForceCommittee.  The network is defined by a PyTorch ScriptModule
      * Note that this constructor makes a copy of the provided module.
@@ -73,7 +71,7 @@ public:
      * @param module   an instance of the torch module
      * @param properties optional map of properties
      */
-    TorchForceCommittee(const torch::jit::Module &module, const std::shared_ptr<c10d::ProcessGroup>& mpi_group, const std::map<std::string, std::string>& properties = {});
+    TorchForceCommittee(const torch::jit::Module &module, const std::map<std::string, std::string>& properties = {});
     /**
      * Get the path to the file containing the network.
      * If the TorchForceCommittee instance was constructed with a module, instead of a filename,

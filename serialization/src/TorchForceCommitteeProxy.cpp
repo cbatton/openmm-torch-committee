@@ -107,14 +107,14 @@ void* TorchForceCommitteeProxy::deserialize(const SerializationNode& node) const
     TorchForceCommittee* force;
     if (storedVersion == 1) {
         string fileName = node.getStringProperty("file");
-        force = new TorchForceCommittee(fileName, nullptr);
+        force = new TorchForceCommittee(fileName);
     } else {
         const string storedEncodedFile = node.getStringProperty("encodedFileContents");
         string fileName = tmpnam(nullptr); // A unique filename
         ofstream(fileName) << hexDecode(storedEncodedFile);
         auto model = torch::jit::load(fileName);
         std::remove(fileName.c_str());
-        force = new TorchForceCommittee(model, nullptr);
+        force = new TorchForceCommittee(model);
     }
     if (node.hasProperty("forceGroup"))
         force->setForceGroup(node.getIntProperty("forceGroup", 0));

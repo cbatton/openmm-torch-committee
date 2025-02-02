@@ -62,7 +62,7 @@ void testForce(bool outputsForces) {
         system.addParticle(1.0);
         positions[i] = Vec3(genrand_real2(sfmt), genrand_real2(sfmt), genrand_real2(sfmt))*10;
     }
-    TorchForceCommittee* force = new TorchForceCommittee(outputsForces ? "tests/forces.pt" : "tests/central.pt", nullptr);
+    TorchForceCommittee* force = new TorchForceCommittee(outputsForces ? "tests/forces.pt" : "tests/central.pt");
     force->setOutputsForces(outputsForces);
     system.addForce(force);
 
@@ -99,7 +99,7 @@ void testPeriodicForce() {
         system.addParticle(1.0);
         positions[i] = Vec3(genrand_real2(sfmt), genrand_real2(sfmt), genrand_real2(sfmt))*10;
     }
-    TorchForceCommittee* force = new TorchForceCommittee("tests/periodic.pt", nullptr);
+    TorchForceCommittee* force = new TorchForceCommittee("tests/periodic.pt");
     force->setUsesPeriodicBoundaryConditions(true);
     system.addForce(force);
 
@@ -138,7 +138,7 @@ void testGlobal() {
         system.addParticle(1.0);
         positions[i] = Vec3(genrand_real2(sfmt), genrand_real2(sfmt), genrand_real2(sfmt))*10;
     }
-    TorchForceCommittee* force = new TorchForceCommittee("tests/global.pt", nullptr);
+    TorchForceCommittee* force = new TorchForceCommittee("tests/global.pt");
     force->addGlobalParameter("k", 2.0);
     force->addEnergyParameterDerivative("k");
     system.addForce(force);
