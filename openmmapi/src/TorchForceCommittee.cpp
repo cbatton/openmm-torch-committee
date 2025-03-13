@@ -69,8 +69,12 @@ const torch::jit::Module& TorchForceCommittee::getModule() const {
 
 c10::intrusive_ptr<c10d::Backend> TorchForceCommittee::initializeBackend(const std::string& backend, const int rank, const int world_size, const std::string& master_addr, const int master_port) {
     if (backend == "nccl") {
+        c10d::TCPStoreOptions opts;
+        opts.port = master_port;
+        opts.numWorkers = world_size;
+        opts.isServer = (rank == 0);
         auto store = c10::make_intrusive<c10d::TCPStore>(
-            master_addr, master_port, world_size, rank == 0
+            master_addr, opts
         );
         auto options = c10d::ProcessGroupNCCL::Options::create();
         return c10::make_intrusive<c10d::ProcessGroupNCCL>(store, rank, world_size, options);
